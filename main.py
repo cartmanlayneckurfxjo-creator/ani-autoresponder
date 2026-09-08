@@ -155,6 +155,25 @@ def process_cycle(processed):
     if new_processed:
         save_processed(processed)
 
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
+
+class HealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'text/plain; charset=utf-8')
+        self.end_headers()
+        self.wfile.write(b"ANI Instagram Autoresponder is Running 24/7 OK\n")
+    
+    def log_message(self, format, *args):
+        return  # suppress noisy health check logs
+
+def run_health_server():
+    port = int(os.getenv("PORT", 8080))
+    server = HTTPServer(("0.0.0.0", port), HealthHandler)
+    logger.info(f"Health check HTTP server listening on port {port}")
+    server.serve_forever()
+
 def main():
     logger.info("Starting ANI Cloud Instagram Autoresponder 24/7...")
     logger.info(f"Instagram Account ID: {IG_ACCOUNT_ID}")
@@ -163,6 +182,10 @@ def main():
     if not PAGE_ACCESS_TOKEN:
         logger.error("META_PAGE_ACCESS_TOKEN is missing! Check environment variables.")
         sys.exit(1)
+        
+    # Start background web server for Render health check
+    health_thread = threading.Thread(target=run_health_server, daemon=True)
+    health_thread.start()
         
     processed = load_processed()
     logger.info(f"Loaded {len(processed)} previously processed comments.")
